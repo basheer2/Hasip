@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { EmptyState } from "@/components/empty-state"
+import { recordActivity } from "@/lib/activity"
 import {
   Dialog,
   DialogContent,
@@ -50,6 +51,7 @@ export function ContractorsView() {
     if (!id) return
     if (!confirm("حذف المقاول؟")) return
     await db.contractors.delete(id)
+    void recordActivity("contractor", "حذف مقاول")
     toast.success("تم حذف المقاول")
     setDetailId(null)
   }
@@ -261,9 +263,11 @@ function ContractorDialog({
     }
     if (editing?.id) {
       await db.contractors.update(editing.id, payload)
+      void recordActivity("contractor", `تعديل مقاول (${name.trim()})`)
       toast.success("تم تعديل المقاول")
     } else {
       await db.contractors.add(payload)
+      void recordActivity("contractor", `إضافة مقاول (${name.trim()})`)
       toast.success("تمت إضافة المقاول")
     }
     onClose()

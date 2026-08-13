@@ -16,11 +16,13 @@ import { useWorkdays, useTransactions, useSettings } from "@/lib/use-data"
 import { computeTotals, workDayValue } from "@/lib/calc"
 import { formatCurrency, formatNumber, isoOf, startOfWeek, formatDateLong } from "@/lib/format"
 import { WORK_TYPE_LABELS, TRANSACTION_TYPE_LABELS } from "@/lib/types"
+import { earnedInMonth, currentMonthKey } from "@/lib/analytics"
 import type { ViewKey } from "@/components/navigation"
 import { StatCard } from "@/components/stat-card"
 import { IncomeChart } from "@/components/income-chart"
 import { PayComparison } from "@/components/pay-comparison"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export function DashboardView({
   onNavigate,
@@ -54,6 +56,10 @@ export function DashboardView({
     }
     return { day, week, month }
   }, [workdays])
+
+  const goal = settings?.monthlyGoal ?? 0
+  const goalProgressValue = earnedInMonth(workdays, currentMonthKey())
+  const goalPercent = goal > 0 ? Math.min(100, (goalProgressValue / goal) * 100) : 0
 
   const recent = useMemo(() => {
     const items: {
@@ -128,6 +134,29 @@ export function DashboardView({
           سحب / استلام
         </Button>
       </div>
+
+      {/* Monthly goal progress */}
+      {goal > 0 && (
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-bold text-card-foreground">
+              الهدف الشهري: {formatCurrency(goalProgressValue, currency)}
+            </p>
+            <p className={cn("text-sm font-extrabold", goalPercent >= 100 ? "text-success" : "text-primary")}>
+              {formatNumber(Math.round(goalPercent))}%
+            </p>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                goalPercent >= 100 ? "bg-success" : "bg-primary",
+              )}
+              style={{ width: `${Math.max(2, goalPercent)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Period income */}
       <div className="grid grid-cols-3 gap-3">

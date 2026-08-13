@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { recordActivity } from "@/lib/activity"
 import {
   Select,
   SelectContent,
@@ -69,6 +70,7 @@ export function ProjectsView() {
     if (!id) return
     if (!confirm("حذف المشروع؟ لن تُحذف أيام العمل المرتبطة.")) return
     await db.projects.delete(id)
+    void recordActivity("project", "حذف مشروع")
     toast.success("تم حذف المشروع")
   }
 
@@ -226,9 +228,11 @@ function ProjectDialog({
     }
     if (editing?.id) {
       await db.projects.update(editing.id, payload)
+      void recordActivity("project", `تعديل مشروع (${name.trim()})`)
       toast.success("تم تعديل المشروع")
     } else {
       await db.projects.add(payload)
+      void recordActivity("project", `إضافة مشروع (${name.trim()})`)
       toast.success("تمت إضافة المشروع")
     }
     onClose()
@@ -263,7 +267,7 @@ function ProjectDialog({
           </div>
           <div className="space-y-1.5">
             <Label>المقاول</Label>
-            <Select value={contractorId} onValueChange={setContractorId}>
+            <Select value={contractorId} onValueChange={(v) => setContractorId(v ?? "none")}>
               <SelectTrigger>
                 <SelectValue placeholder="بدون" />
               </SelectTrigger>

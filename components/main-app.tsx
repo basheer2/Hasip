@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Zap, Moon, Sun, Monitor } from "lucide-react"
-import { seedIfEmpty } from "@/lib/db"
+import { seedIfEmpty, db } from "@/lib/db"
 import { useSettings } from "@/lib/use-data"
+import { recordActivity } from "@/lib/activity"
 import { useTheme, type ThemeMode } from "@/lib/use-theme"
 import { LoginGate } from "@/components/login-gate"
-import { NAV_ITEMS, BOTTOM_NAV_KEYS, type ViewKey } from "@/components/navigation"
+import { NAV_ITEMS, BOTTOM_NAV_KEYS, MORE_ICON, type ViewKey } from "@/components/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -15,9 +16,12 @@ import { WorkdaysView } from "@/components/views/workdays-view"
 import { TransactionsView } from "@/components/views/transactions-view"
 import { RecordsView } from "@/components/views/records-view"
 import { ReportsView } from "@/components/views/reports-view"
+import { AnalyticsView } from "@/components/views/analytics-view"
+import { AdminView } from "@/components/views/admin-view"
 import { ProjectsView } from "@/components/views/projects-view"
 import { ContractorsView } from "@/components/views/contractors-view"
 import { SettingsView } from "@/components/views/settings-view"
+import { MoreView } from "@/components/views/more-view"
 
 const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: "لوحة التحكم",
@@ -25,9 +29,12 @@ const VIEW_TITLES: Record<ViewKey, string> = {
   transactions: "السحوبات والمستلمات",
   records: "السجل الكامل",
   reports: "التقارير",
+  analytics: "التحليلات",
+  admin: "لوحة التحكم",
   projects: "المشاريع والمواقع",
   contractors: "المقاولون",
   settings: "الإعدادات",
+  more: "المزيد",
 }
 
 export function MainApp() {
@@ -36,6 +43,8 @@ export function MainApp() {
   const [view, setView] = useState<ViewKey>("dashboard")
   const [ready, setReady] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
+  const lastActivity = useRef(Date.now())
+  const reminderShown = useRef(false)
 
   useEffect(() => {
     seedIfEmpty().then(() => setReady(true))
@@ -44,6 +53,53 @@ export function MainApp() {
   useEffect(() => {
     if (sessionStorage.getItem("app-unlocked") === "1") setUnlocked(true)
   }, [])
+
+  // ——— القفل التلقائي بعد فترة خمول ———
+  useEffect(() => {
+    if (!settings.loginEnabled || !settings.passwordHash || settings.autoLockMinutes <= 0) return
+    const events = ["pointerdown", "keydown", "touchstart", "scroll"] as const
+    const bump = () => {
+      lastActivity.current = Date.now()
+    }
+    events.forEach((e) => window.addEventListener(e, bump))
+    const iv = window.setInterval(() => {
+      const idle = Date.now() - lastActivity.current
+      if (idle >= settings.autoLockMinutes * 60_000) {
+        sessionStorage.removeItem("app-unlocked")
+        setUnlocked(false)
+      }
+    }, 10_000)
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, bump))
+      window.clearInterval(iv)
+    }
+  }, [settings.loginEnabled, settings.passwordHash, settings.autoLockMinutes])
+
+  // ——— تذكير النسخ الاحتياطي ———
+  useEffect(() => {
+    if (!ready || reminderShown.current) return
+    const days = settings.backupReminderDays
+    if (days <= 0) return
+    const last = settings.lastBackupAt
+    const overdue = last == null || Date.now() - last > days * 86_400_000
+    if (!overdue) return
+    reminderShown.current = true
+    const t = window.setTimeout(() => {
+      import("sonner").then(({ toast }) => {
+        toast.warning("حان وقت النسخ الاحتياطي", {
+          description: `آخر نسخة احتياطية قبل أكثر من ${days} يوم. صدّر نسخة من لوحة التحكم.`,
+          action: {
+            label: "تصدير الآن",
+            onClick: () => {
+              setView("admin")
+            },
+          },
+          duration: 10_000,
+        })
+      })
+    }, 1500)
+    return () => window.clearTimeout(t)
+  }, [ready, settings.backupReminderDays, settings.lastBackupAt])
 
   if (!ready || !settings) {
     return (
@@ -57,7 +113,16 @@ export function MainApp() {
 
   const needsAuth = settings.loginEnabled && settings.passwordHash && !unlocked
   if (needsAuth) {
-    return <LoginGate settings={settings} onUnlock={() => setUnlocked(true)} />
+    return (
+      <LoginGate
+        settings={settings}
+        onUnlock={() => {
+          sessionStorage.setItem("app-unlocked", "1")
+          void recordActivity("login", "دخول إلى النظام")
+          setUnlocked(true)
+        }}
+      />
+    )
   }
 
   return (
@@ -127,9 +192,12 @@ export function MainApp() {
           {view === "transactions" && <TransactionsView />}
           {view === "records" && <RecordsView />}
           {view === "reports" && <ReportsView />}
+          {view === "analytics" && <AnalyticsView />}
+          {view === "admin" && <AdminView />}
           {view === "projects" && <ProjectsView />}
           {view === "contractors" && <ContractorsView />}
           {view === "settings" && <SettingsView />}
+          {view === "more" && <MoreView onNavigate={setView} />}
         </main>
       </div>
 
@@ -137,7 +205,10 @@ export function MainApp() {
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-lg items-stretch justify-around">
           {BOTTOM_NAV_KEYS.map((key) => {
-            const item = NAV_ITEMS.find((n) => n.key === key)!
+            const item =
+              key === "more"
+                ? { key, label: "المزيد", icon: MORE_ICON }
+                : NAV_ITEMS.find((n) => n.key === key)!
             const Icon = item.icon
             const active = view === key
             return (

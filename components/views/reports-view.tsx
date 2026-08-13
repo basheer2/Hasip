@@ -3,16 +3,18 @@
 import { useMemo, useState } from "react"
 import { useWorkdays, useTransactions, useSettings } from "@/lib/use-data"
 import { computeTotals, workDayValue } from "@/lib/calc"
-import { WORK_TYPE_LABELS } from "@/lib/types"
+import { WORK_TYPE_LABELS, TRANSACTION_TYPE_LABELS } from "@/lib/types"
 import type { WorkDay } from "@/lib/types"
 import { formatCurrency, formatDate, todayISO, startOfWeek, isoOf } from "@/lib/format"
 import { generateReportPdf } from "@/lib/pdf"
+import { exportCsv } from "@/lib/csv"
+import { recordActivity } from "@/lib/activity"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Download } from "lucide-react"
+import { FileText, Download, FileSpreadsheet } from "lucide-react"
 import { toast } from "sonner"
 
 type Period = "daily" | "weekly" | "monthly" | "custom"
@@ -72,10 +74,29 @@ export function ReportsView() {
         totals,
         workdays: rangedWorkdays,
       })
+      void recordActivity("export", `تصدير تقرير PDF (${rangeLabel})`)
       toast.success("تم إنشاء ملف PDF")
     } catch (e) {
       console.log("[v0] pdf error", e)
       toast.error("تعذّر إنشاء الملف")
+    }
+  }
+
+  const handleExportCsv = async () => {
+    try {
+      const rows: (string | number)[][] = []
+      for (const w of rangedWorkdays) {
+        rows.push([w.date, WORK_TYPE_LABELS[w.type], "", workDayValue(w)])
+      }
+      for (const t of rangedTx) {
+        rows.push([t.date, t.reason || TRANSACTION_TYPE_LABELS[t.type], t.type, t.amount])
+      }
+      rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+      await exportCsv(`report-${from}-to-${to}.csv`, ["التاريخ", "البيان", "النوع", "المبلغ"], rows)
+      void recordActivity("export", `تصدير تقرير CSV (${rangeLabel})`)
+      toast.success("تم تصدير ملف CSV")
+    } catch {
+      toast.error("تعذّر التصدير")
     }
   }
 
@@ -94,12 +115,18 @@ export function ReportsView() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">التقارير</h1>
-          <p className="text-sm text-muted-foreground">استعرض حسابك حسب الفترة واستخرج كشف PDF</p>
+          <p className="text-sm text-muted-foreground">استعرض حسابك حسب الفترة واستخرج كشف PDF أو Excel</p>
         </div>
-        <Button onClick={handleExport} className="gap-2">
-          <Download className="size-4" />
-          تصدير PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExportCsv}>
+            <FileSpreadsheet className="size-4" />
+            Excel
+          </Button>
+          <Button onClick={handleExport} className="gap-2">
+            <Download className="size-4" />
+            تصدير PDF
+          </Button>
+        </div>
       </div>
 
       <Card>

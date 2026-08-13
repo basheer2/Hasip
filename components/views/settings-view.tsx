@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog"
 import { User, Coins, Lock, Database, Trash2, Download, Upload, Save } from "lucide-react"
 import { toast } from "sonner"
+import { recordActivity } from "@/lib/activity"
+import { PasswordDialog } from "@/components/password-dialog"
 
 export function SettingsView() {
   const settings = useSettings()
@@ -52,12 +54,15 @@ export function SettingsView() {
     }
     await db.settings.put({ ...current, id: 1, loginEnabled: enabled })
     if (form) setForm({ ...current, loginEnabled: enabled })
+    void recordActivity("security", enabled ? "تفعيل تسجيل الدخول" : "إيقاف تسجيل الدخول")
     toast.success(enabled ? "تم تفعيل تسجيل الدخول" : "تم إيقاف تسجيل الدخول")
   }
 
   async function handleExport() {
     try {
       await exportBackup()
+      await db.settings.put({ ...current, id: 1, lastBackupAt: Date.now() })
+      void recordActivity("backup", "تصدير نسخة احتياطية من البيانات")
       toast.success("تم تصدير النسخة الاحتياطية")
     } catch {
       toast.error("تعذّر التصدير")
@@ -67,6 +72,7 @@ export function SettingsView() {
   async function handleImportFile(file: File) {
     try {
       await importBackup(file)
+      void recordActivity("backup", "استيراد نسخة احتياطية واستعادة البيانات")
       toast.success("تم استيراد البيانات")
     } catch {
       toast.error("ملف النسخة غير صالح")
@@ -77,6 +83,7 @@ export function SettingsView() {
     await resetAllData()
     setResetOpen(false)
     setForm(null)
+    void recordActivity("reset", "تصفير جميع البيانات")
     toast.success("تم تصفير جميع البيانات")
   }
 
@@ -262,6 +269,7 @@ export function SettingsView() {
           await db.settings.put({ ...current, id: 1, passwordHash: hash, loginEnabled: true })
           setForm(null)
           setPwOpen(false)
+          void recordActivity("security", "تغيير كلمة المرور")
           toast.success("تم حفظ كلمة المرور")
         }}
         currentHash={settings.passwordHash}
@@ -286,82 +294,5 @@ export function SettingsView() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function PasswordDialog({
-  open,
-  onOpenChange,
-  onSaved,
-  hasPassword,
-  currentHash,
-}: {
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  onSaved: (hash: string) => void
-  hasPassword: boolean
-  currentHash: string | null
-}) {
-  const [oldPw, setOldPw] = useState("")
-  const [newPw, setNewPw] = useState("")
-  const [confirm, setConfirm] = useState("")
-  const [error, setError] = useState("")
-
-  async function submit() {
-    setError("")
-    if (hasPassword && currentHash) {
-      const oldHash = await hashPassword(oldPw)
-      if (oldHash !== currentHash) {
-        setError("كلمة المرور الحالية غير صحيحة")
-        return
-      }
-    }
-    if (newPw.length < 4) {
-      setError("كلمة المرور يجب أن تكون 4 أحرف على الأقل")
-      return
-    }
-    if (newPw !== confirm) {
-      setError("كلمتا المرور غير متطابقتين")
-      return
-    }
-    const hash = await hashPassword(newPw)
-    setOldPw("")
-    setNewPw("")
-    setConfirm("")
-    onSaved(hash)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{hasPassword ? "تغيير كلمة المرور" : "تعيين كلمة المرور"}</DialogTitle>
-          <DialogDescription>تُخزَّن كلمة المرور مشفّرة داخل الجهاز فقط.</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          {hasPassword && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="oldPw">كلمة المرور الحالية</Label>
-              <Input id="oldPw" type="password" value={oldPw} onChange={(e) => setOldPw(e.target.value)} />
-            </div>
-          )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="newPw">كلمة المرور الجديدة</Label>
-            <Input id="newPw" type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="confirmPw">تأكيد كلمة المرور</Label>
-            <Input id="confirmPw" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-          </div>
-          {error && <p className="text-sm font-medium text-negative">{error}</p>}
-        </div>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            إلغاء
-          </Button>
-          <Button onClick={submit}>حفظ</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

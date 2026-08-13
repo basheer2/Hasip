@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Search, ScrollText, CalendarDays, TrendingUp, TrendingDown, Zap } from "lucide-react"
+import { Search, ScrollText, CalendarDays, TrendingUp, TrendingDown, Zap, FileSpreadsheet } from "lucide-react"
 import {
   useWorkdays,
   useTransactions,
@@ -13,8 +13,12 @@ import { workDayValue, hasOvertime } from "@/lib/calc"
 import { formatDate, formatNumber, weekdayName } from "@/lib/format"
 import { WORK_TYPE_LABELS, TRANSACTION_TYPE_LABELS } from "@/lib/types"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/empty-state"
 import { cn } from "@/lib/utils"
+import { exportCsv } from "@/lib/csv"
+import { recordActivity } from "@/lib/activity"
+import { toast } from "sonner"
 import {
   Select,
   SelectContent,
@@ -121,16 +125,50 @@ export function RecordsView() {
     })
   }, [rows, query, from, to, projectId, contractorId, kind])
 
+  async function handleExportCsv() {
+    try {
+      await exportCsv(
+        `records-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["التاريخ", "اليوم", "النوع", "التفاصيل", "المبلغ"],
+        filtered.map((r) => [
+          formatDate(r.date),
+          weekdayName(r.date),
+          r.kind === "work"
+            ? WORK_TYPE_LABELS[r.title as keyof typeof WORK_TYPE_LABELS] ?? "يوم عمل"
+            : r.title,
+          r.subtitle,
+          r.amount,
+        ]),
+      )
+      void recordActivity("export", `تصدير سجل CSV (${filtered.length} عملية)`)
+      toast.success("تم تصدير ملف CSV")
+    } catch {
+      toast.error("تعذّر التصدير")
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="بحث في السجل..."
-          className="pr-10"
-        />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="بحث في السجل..."
+            className="pr-10"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0 bg-transparent"
+          onClick={handleExportCsv}
+          title="تصدير النتائج إلى CSV"
+          aria-label="تصدير CSV"
+        >
+          <FileSpreadsheet className="size-4" />
+        </Button>
       </div>
 
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
@@ -151,7 +189,7 @@ export function RecordsView() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Select value={projectId} onValueChange={setProjectId}>
+        <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "all")}>
           <SelectTrigger>
             <SelectValue placeholder="المشروع" />
           </SelectTrigger>
@@ -164,7 +202,7 @@ export function RecordsView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={contractorId} onValueChange={setContractorId}>
+        <Select value={contractorId} onValueChange={(v) => setContractorId(v ?? "all")}>
           <SelectTrigger>
             <SelectValue placeholder="المقاول" />
           </SelectTrigger>

@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { recordActivity } from "@/lib/activity"
 import {
   Select,
   SelectContent,
@@ -54,6 +55,7 @@ export function TransactionsView() {
     if (!id) return
     if (!confirm("هل تريد حذف هذه العملية؟")) return
     await db.transactions.delete(id)
+    void recordActivity("transaction", "حذف عملية مالية")
     toast.success("تم الحذف")
   }
 
@@ -242,9 +244,11 @@ function TransactionDialog({
     }
     if (editing?.id) {
       await db.transactions.update(editing.id, payload)
+      void recordActivity("transaction", `تعديل عملية (${date})`)
       toast.success("تم تعديل العملية")
     } else {
       await db.transactions.add(payload)
+      void recordActivity("transaction", `إضافة عملية (${date})`)
       toast.success("تمت إضافة العملية")
     }
     onClose()
@@ -323,7 +327,7 @@ function TransactionDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>المشروع</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
+              <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "none")}>
                 <SelectTrigger>
                   <SelectValue placeholder="بدون" />
                 </SelectTrigger>
@@ -339,7 +343,7 @@ function TransactionDialog({
             </div>
             <div className="space-y-1.5">
               <Label>المقاول</Label>
-              <Select value={contractorId} onValueChange={setContractorId}>
+              <Select value={contractorId} onValueChange={(v) => setContractorId(v ?? "none")}>
                 <SelectTrigger>
                   <SelectValue placeholder="بدون" />
                 </SelectTrigger>

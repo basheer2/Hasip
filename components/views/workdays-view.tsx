@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { recordActivity } from "@/lib/activity"
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ export function WorkdaysView() {
     if (!id) return
     if (!confirm("هل تريد حذف يوم العمل هذا؟")) return
     await db.workdays.delete(id)
+    void recordActivity("workday", "حذف يوم عمل")
     toast.success("تم حذف يوم العمل")
   }
 
@@ -209,9 +211,10 @@ function WorkdayDialog({
 
   const showOvertime = hasOvertime(type)
 
-  function onProjectChange(val: string) {
-    setProjectId(val)
-    const p = projects.find((x) => String(x.id) === val)
+  function onProjectChange(val: string | null) {
+    const v = val ?? "none"
+    setProjectId(v)
+    const p = projects.find((x) => String(x.id) === v)
     if (p) {
       setDailyRate(String(p.dailyRate))
       if (p.overtimeRate) setOvertimeAmount(String(p.overtimeRate))
@@ -236,9 +239,11 @@ function WorkdayDialog({
     }
     if (editing?.id) {
       await db.workdays.update(editing.id, payload)
+      void recordActivity("workday", `تعديل يوم عمل (${date})`)
       toast.success("تم تعديل يوم العمل")
     } else {
       await db.workdays.add(payload)
+      void recordActivity("workday", `إضافة يوم عمل (${date})`)
       toast.success("تمت إضافة يوم العمل")
     }
     onClose()
@@ -329,7 +334,7 @@ function WorkdayDialog({
             </div>
             <div className="space-y-1.5">
               <Label>المقاول</Label>
-              <Select value={contractorId} onValueChange={setContractorId}>
+              <Select value={contractorId} onValueChange={(v) => setContractorId(v ?? "none")}>
                 <SelectTrigger>
                   <SelectValue placeholder="بدون" />
                 </SelectTrigger>

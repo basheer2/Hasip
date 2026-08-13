@@ -81,6 +81,12 @@ export interface Settings {
   loginEnabled: boolean
   passwordHash: string | null
   theme: "light" | "dark" | "system"
+  // ——— ميزات احترافية ———
+  monthlyGoal: number // الهدف الشهري (0 = غير مفعّل)
+  autoLockMinutes: number // القفل التلقائي بالدقائق (0 = غير مفعّل)
+  backupReminderDays: number // تذكير النسخ الاحتياطي (0 = غير مفعّل)
+  lastBackupAt: number | null // آخر نسخة احتياطية (timestamp)
+  enableActivityLog: boolean // تفعيل سجل النشاط
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -94,4 +100,42 @@ export const DEFAULT_SETTINGS: Settings = {
   loginEnabled: false,
   passwordHash: null,
   theme: "system",
+  monthlyGoal: 0,
+  autoLockMinutes: 0,
+  backupReminderDays: 0,
+  lastBackupAt: null,
+  enableActivityLog: true,
+}
+
+// ——— سجل النشاط ———
+export type ActivityType =
+  | "login"
+  | "workday"
+  | "transaction"
+  | "project"
+  | "contractor"
+  | "backup"
+  | "reset"
+  | "settings"
+  | "security"
+  | "export"
+
+export interface ActivityEntry {
+  id?: number
+  timestamp: number
+  type: ActivityType
+  message: string
+}
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  login: "دخول",
+  workday: "أيام العمل",
+  transaction: "العمليات",
+  project: "المشاريع",
+  contractor: "المقاولون",
+  backup: "نسخ احتياطي",
+  reset: "حذف",
+  settings: "إعدادات",
+  security: "حماية",
+  export: "تصدير",
 }

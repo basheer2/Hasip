@@ -7,6 +7,9 @@ import {
   Users,
   Briefcase,
   ScrollText,
+  BarChart3,
+  Gauge,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react"
 
@@ -16,9 +19,12 @@ export type ViewKey =
   | "transactions"
   | "records"
   | "reports"
+  | "analytics"
+  | "admin"
   | "projects"
   | "contractors"
   | "settings"
+  | "more"
 
 export interface NavEntry {
   key: ViewKey
@@ -32,6 +38,8 @@ export const NAV_ITEMS: NavEntry[] = [
   { key: "transactions", label: "السحوبات", icon: Wallet },
   { key: "records", label: "السجل", icon: ScrollText },
   { key: "reports", label: "التقارير", icon: FileText },
+  { key: "analytics", label: "التحليلات", icon: BarChart3 },
+  { key: "admin", label: "لوحة التحكم", icon: Gauge },
   { key: "projects", label: "المشاريع", icon: Briefcase },
   { key: "contractors", label: "المقاولون", icon: Users },
   { key: "settings", label: "الإعدادات", icon: Settings },
@@ -43,5 +51,16 @@ export const BOTTOM_NAV_KEYS: ViewKey[] = [
   "workdays",
   "transactions",
   "records",
-  "reports",
+  "more",
 ]
+
+export const MORE_ITEMS: NavEntry[] = [
+  { key: "reports", label: "التقارير", icon: FileText },
+  { key: "analytics", label: "التحليلات", icon: BarChart3 },
+  { key: "admin", label: "لوحة التحكم", icon: Gauge },
+  { key: "projects", label: "المشاريع", icon: Briefcase },
+  { key: "contractors", label: "المقاولون", icon: Users },
+  { key: "settings", label: "الإعدادات", icon: Settings },
+]
+
+export const MORE_ICON = LayoutGrid
